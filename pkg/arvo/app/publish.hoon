@@ -432,6 +432,12 @@
     ^-  (quip card _this)
     ?-    -.sin
         %poke-ack
+      ?:  ?=([%join-group @ @ ~] wir)
+        =/  =ship
+          (slav %p i.t.wir)
+        =^  cards  state
+          (subscribe-notebook ship i.t.t.wir)
+        [cards this]
       ?~  p.sin
         [~ this]
       =^  cards  state
@@ -957,18 +963,33 @@
       %accepted
     ?>  ?=([%notebook @ ~] path.invite.upd)
     =/  book  i.t.path.invite.upd
-    =/  wir=wire  /subscribe/(scot %p ship.invite.upd)/[book]
-    =?  tile-num  (gth tile-num 0)
-      (dec tile-num)
-    =/  jon=json  (frond:enjs:format %notifications (numb:enjs:format tile-num))
     =/  =group-id
-      [ship.invite.upd book]
+      (need (group-id:de-path:group-store path.invite.upd))
+    =/  group
+      (group-from-book path.invite.upd)
+    ?^  group
+      (subscribe-notebook ship.invite.upd book)
+    =/  join-wire=wire
+      /join-group/[(scot %p ship.invite.upd)]/[book]
+    =/  =cage
+      :-  %group-action
+      !>  ^-  action:group-store
+      [%add-members group-id (sy our.bol ~) ~]
     :_  state
-    :~  (group-proxy-poke ship.invite.upd %add-members group-id (sy our.bol ~) ~)
-        (group-hook-poke %add group-id)
-        [%pass wir %agent [ship.invite.upd %publish] %watch path.invite.upd]
-        [%give %fact [/publishtile]~ %json !>(jon)]
-    ==
+    [%pass join-wire %agent [ship.group-id %group-hook] %poke cage]~
+  ==
+::
+++  subscribe-notebook
+  |=  [=ship book=@tas]
+  ^-  (quip card _state)
+  =/  pax=path  /notebook/[book]
+  =/  wir=wire  /subscribe/[(scot %p ship)]/[book]
+  =?  tile-num  (gth tile-num 0)
+    (dec tile-num)
+  =/  jon=json  (frond:enjs:format %notifications (numb:enjs:format tile-num))
+  :_  state
+  :~  [%pass wir %agent [ship %publish] %watch pax]
+      [%give %fact [/publishtile]~ %json !>(jon)]
   ==
 ::
 ++  watch-notebook
@@ -985,19 +1006,26 @@
 ::
 ++  our-beak  /(scot %p our.bol)/[q.byk.bol]/(scot %da now.bol)
 ::
+++  book-writers
+  |=  [host=@p book=@tas]
+  ^-  (set ship)
+  =/  =notebook  (~(got by books) host book)
+  =/  =group-id
+    (need (group-id:de-path:group-store writers.notebook))
+  %-  ~(uni in (fall (scry-tag:grup group-id %admin) ~))
+  %+  fall
+    (scry-tag:grup group-id `tag`[%publish (cat 3 %writers- book)])
+  ~
+::
 ++  allowed
   |=  [who=@p mod=?(%read %write) book=@tas]
   ^-  ?
-  =/  book=notebook  (~(got by books) our.bol book)
+  =/  =notebook  (~(got by books) our.bol book)
   =/  =group-id
-    (need (group-id:de-path:group-store writers.book))
-  =/  role=(unit (unit role-tag))
-    (role-for-ship:grup group-id who)
-  ?~  role
-    %.n
-  ?.  ?=(%write mod)
-    %.y
-  ?=(^ u.role)
+    (need (group-id:de-path:group-store writers.notebook))
+  ?:  ?=(%read mod)
+    (~(has in (members:grup group-id)) who)
+  (~(has in (book-writers our.bol book)) who)
 ::
 ++  write-file
   |=  [pax=path cay=cage]
@@ -1693,9 +1721,16 @@
   ::
       %subscribe
     ?>  (team:title our.bol src.bol)
-    =/  wir=wire  /subscribe/(scot %p who.act)/[book.act]
+    =/  join-wire=wire
+      /join-group/[(scot %p who.act)]/[book.act]
+    =/  =group-id
+      [who.act book.act]
+    =/  =cage
+      :-  %group-action
+      !>  ^-  action:group-store
+      [%add-members group-id (sy our.bol ~) ~]
     :_  state
-    [%pass wir %agent [who.act %publish] %watch /notebook/[book.act]]~
+    [%pass join-wire %agent [who.act %group-hook] %poke cage]~
   ::  %unsubscribe
   ::
       %unsubscribe
@@ -1874,31 +1909,30 @@
     |=  [group-path=path app-path=path =metadata]
     ^-  (list card)
     [(metadata-poke [%add group-path [%publish app-path] metadata])]~
-
-  ::
-  ++  group-from-book
-    |=  app-path=path
-    ^-  (unit path)
-    ?.  .^(? %gu (scot %p our.bol) %metadata-store (scot %da now.bol) ~)
-      ?:  ?=([@ ^] app-path)
-        ~&  [%assuming-ported-legacy-publish app-path]
-        `[%'~' app-path]
-      ~&([%weird-publish app-path] ~)
-    =/  resource-indices
-      .^  (jug resource group-path)
-        %gy
-        (scot %p our.bol)
-        %metadata-store
-        (scot %da now.bol)
-        /resource-indices
-      ==
-    =/  groups=(unit (set path))
-      (~(get by resource-indices) [%publish app-path])
-    ?~  groups  ~
-    =/  group-paths  ~(tap in u.groups)
-    ?~  group-paths  ~
-    `i.group-paths
   --
+::
+++  group-from-book
+  |=  app-path=path
+  ^-  (unit path)
+  ?.  .^(? %gu (scot %p our.bol) %metadata-store (scot %da now.bol) ~)
+    ?:  ?=([@ ^] app-path)
+      ~&  [%assuming-ported-legacy-publish app-path]
+      `[%'~' app-path]
+    ~&([%weird-publish app-path] ~)
+  =/  resource-indices
+    .^  (jug resource group-path)
+      %gy
+      (scot %p our.bol)
+      %metadata-store
+      (scot %da now.bol)
+      /resource-indices
+    ==
+  =/  groups=(unit (set path))
+    (~(get by resource-indices) [%publish app-path])
+  ?~  groups  ~
+  =/  group-paths  ~(tap in u.groups)
+  ?~  group-paths  ~
+  `i.group-paths
 ::
 ++  metadata-hook-poke
   |=  act=metadata-hook-action
@@ -2106,6 +2140,19 @@
   ?.  =(book i.t.pax)  out
   [[%s (scot %p who)] out]
 ::
+++  get-writers-json
+  |=  [host=@p book=@tas]
+  =/  =tag
+    [%publish (cat 3 %writers- book)]
+  ^-  json
+  =/  writers=(list ship)
+    ~(tap in (book-writers host book))
+  :-  %a
+  %+  turn  writers
+  |=  who=@p
+  ^-  json
+  [%s (scot %p who)]
+::
 ++  get-notebook-json
   |=  [host=@p book-name=@tas]
   ^-  (unit json)
@@ -2119,6 +2166,8 @@
     (~(uni by p.notebook-json) (notes-page notes.u.book 0 50))
   =.  p.notebook-json
     (~(put by p.notebook-json) %subscribers (get-subscribers-json book-name))
+  =.  p.notebook-json
+    (~(put by p.notebook-json) %writers (get-writers-json host book-name))
   =/  notebooks-json  (notebooks-map-json our.bol books)
   ?>  ?=(%o -.notebooks-json)
   =/  host-books-json  (~(got by p.notebooks-json) (scot %p host))
@@ -2247,6 +2296,8 @@
       (~(uni by p.notebook-json) (notes-page notes.u.book 0 50))
     =.  p.notebook-json
       (~(put by p.notebook-json) %subscribers (get-subscribers-json book-name))
+    =.  p.notebook-json
+      (~(put by p.notebook-json) %writers (get-writers-json u.host book-name))
     =/  jon=json  (pairs notebook+notebook-json ~)
     (json-response:gen (json-to-octs jon))
   ::

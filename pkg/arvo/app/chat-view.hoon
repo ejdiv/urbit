@@ -96,6 +96,20 @@
     |=  [=wire =sign:agent:gall]
     ^-  (quip card _this)
     ?+    -.sign  (on-agent:def wire sign)
+        %poke-ack
+      ?.  ?=([%join-group @ @ @ @ ~] wire)
+        (on-agent:def wire sign)
+      ?~  p.sign
+        (on-agent:def wire sign)
+      =/  =ship
+        (slav %p i.t.wire)
+      =/  ask-history=?
+        =('y' i.t.t.wire)
+      =/  =group-id
+        (need (group-id:de-path:group-store t.t.t.wire))
+      :_  this
+      (joined-group:cc group-id ship ask-history)
+    ::
         %kick
       :_  this
       [%pass / %agent [our.bol %chat-store] %watch /updates]~
@@ -212,14 +226,21 @@
       %join
     ::  joining unmanaged chat if we don't have the group already
     =/  group-path
-      (fall (maybe-group-from-chat app-path.act) app-path.act)
+      (maybe-group-from-chat app-path.act)
+    ?^  group-path
+      ~[(chat-hook-poke %add-synced ship.act app-path.act ask-history.act)]
     =/  =group-id
-      (need (group-id:de-path:group-store group-path))
-    :~  (group-proxy-poke %add-members group-id (sy our.bol ~) ~)
-        (group-hook-poke %add group-id)
-        (chat-hook-poke [%add-synced ship.act app-path.act ask-history.act])
-        (metadata-hook-poke [%add-synced ship.act group-path])
-    ==
+      (need (group-id:de-path:group-store app-path.act))
+    =/  =cage
+      :-  %group-action
+      !>  ^-  action:group-store
+      [%add-members group-id (sy our.bol ~) ~]
+    ::  we need this info in the wire to continue the flow after the
+    ::  poke ack
+    =/  =wire
+      :-  %join-group
+      [(scot %p ship.act) ?:(ask-history.act %y %n) app-path.act]
+    [%pass wire %agent [ship.group-id %group-hook] %poke cage]~
   ::
       %groupify
     =*  app-path  app-path.act
@@ -243,9 +264,6 @@
       (need (scry-group:grp group-id))
     =/  ships=(set ship)
       (~(dif in members.old-group) members.group)
-    ~&  ships
-    ~&  group
-    ~&  old-group
     :*  (metadata-store-poke %remove app-path %chat app-path)
         (metadata-store-poke %add group-path [%chat app-path] metadata)
         (group-poke %remove-group old-group-id ~)
@@ -277,7 +295,7 @@
     ::
     :-
       ?:  =(path app-path)
-        (group-poke %add-group group-id policy %.n)
+        (group-poke %add-group group-id policy %.y)
       (contact-view-poke %create term.group-id policy title desc)
     %+  murn  ~(tap in ships)
     |=  =ship
@@ -316,15 +334,6 @@
     |=  act=metadata-action
     ^-  card
     [%pass / %agent [our.bol %metadata-store] %poke %metadata-action !>(act)]
-  ::
-  ++  metadata-hook-poke
-    |=  act=metadata-hook-action
-    ^-  card
-    :*  %pass  /  %agent
-        [our.bol %metadata-hook]
-        %poke  %metadata-hook-action
-        !>(act)
-    ==
   ::
   ++  send-invite
     |=  [group-path=path app-path=path =ship]
@@ -397,6 +406,17 @@
     ?~  meta  !!
     =(our.bol creator.u.meta)
   --
+::  +joined-group: Successfully joined unmanaged group, continue flow
+::
+++  joined-group
+  |=  [=group-id =ship ask-history=?]
+  ^-  (list card)
+  =/  =path
+    (group-id:en-path:group-store group-id)
+  :~  (group-hook-poke %add group-id)
+      (chat-hook-poke %add-synced ship path ask-history)
+      (metadata-hook-poke %add-synced ship path)
+  ==
 ::
 ++  diff-chat-update
   |=  upd=chat-update
@@ -450,6 +470,15 @@
   ^-  card
   :*  %pass  /  %agent  [our.bol %permission-group-hook]
       %poke  %permission-group-hook-action  !>(act)
+  ==
+::
+++  metadata-hook-poke
+  |=  act=metadata-hook-action
+  ^-  card
+  :*  %pass  /  %agent
+      [our.bol %metadata-hook]
+      %poke  %metadata-hook-action
+      !>(act)
   ==
 ::
 ++  envelope-scry
