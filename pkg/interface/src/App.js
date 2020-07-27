@@ -3,9 +3,10 @@ import 'react-hot-loader';
 import * as React from 'react';
 import { BrowserRouter as Router, Route, withRouter, Switch } from 'react-router-dom';
 import styled, { ThemeProvider, createGlobalStyle } from 'styled-components';
+
 import './css/indigo-static.css';
 import './css/fonts.css';
-import { light } from '@tlon/indigo-react';
+import { light, dark, inverted, paperDark } from '@tlon/indigo-react';
 
 import LaunchApp from './apps/launch/app';
 import ChatApp from './apps/chat/app';
@@ -34,7 +35,6 @@ import GlobalApi from './api/global';
 
 const Root = styled.div`
   font-family: ${p => p.theme.fonts.sans};
-  line-height: ${p => p.theme.lineHeights.regular};
   height: 100%;
   width: 100%;
   padding: 0;
@@ -59,10 +59,24 @@ class App extends React.Component {
     this.api = new GlobalApi(this.ship, this.appChannel, this.store);
     this.subscription =
       new GlobalSubscription(this.store, this.api, this.appChannel);
+
+    this.updateTheme = this.updateTheme.bind(this);
   }
 
   componentDidMount() {
     this.subscription.start();
+    this.themeWatcher = window.matchMedia('(prefers-color-scheme: dark)');
+    this.api.local.setDark(this.themeWatcher.matches);
+    this.themeWatcher.addListener(this.updateTheme);
+    this.api.local.getBaseHash();
+  }
+
+  componentWillUnmount() {
+    this.themeWatcher.removeListener(this.updateTheme);
+  }
+
+  updateTheme(e) {
+    this.api.local.setDark(e.matches);
   }
 
   render() {
@@ -71,15 +85,18 @@ class App extends React.Component {
     const associations = this.state.associations ? this.state.associations : { contacts: {} };
     const selectedGroups = this.state.selectedGroups ? this.state.selectedGroups : [];
     const { state } = this;
+    const theme = state.dark ? paperDark : light;
 
     return (
-      <ThemeProvider theme={light}>
+      <ThemeProvider theme={theme}>
         <Root>
           <Router>
             <StatusBarWithRouter props={this.props}
             associations={associations}
             invites={this.state.invites}
             api={this.api}
+            connection={this.state.connection}
+            subscription={this.subscription}
             />
             <Content>
             <Switch>
